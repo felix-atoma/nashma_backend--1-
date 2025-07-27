@@ -14,7 +14,9 @@ connectDB();
 // ✅ Allowed origins for both local and live frontend
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://nashma-agribusness.netlify.app"
+  "https://nashma-agribusness.netlify.app",
+  "https://nashma-agribusness.vercel.app"
+  
 ];
 
 // ✅ Middleware
