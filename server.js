@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const connectDB = require('./config/db');
 const productRoutes = require('./routes/productRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 
 dotenv.config();
 const app = express();
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
 app.use('/api/products', productRoutes);
+app.use('/cart', cartRoutes);
 
 // ✅ Serve static files from public folder (for health check or test page)
 app.use(express.static(path.join(__dirname, 'public')));

@@ -1,8 +1,9 @@
-// routes/productRoutes.js
 const express = require('express');
-const { getAllProducts } = require('../controllers/productController');
-
 const router = express.Router();
-router.get('/', getAllProducts);
+const productController = require('../controllers/productController');
+
+// Public routes
+router.get('/', productController.getAllProducts);
+router.get('/:id', productController.getProductById);
 
 module.exports = router;
