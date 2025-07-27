@@ -12,21 +12,27 @@ const app = express();
 // ✅ Connect to MongoDB
 connectDB();
 
-// ✅ Allowed origins for both local and live frontend
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://nashma-agribusness.netlify.app",
-  "https://nashma-agribusness.vercel.app"
-  
-];
+// ✅ Parse allowed origins from environment variable
+const allowedOrigins = process.env.CLIENT_URLS?.split(',') || [];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.error(`❌ CORS Error: Origin ${origin} not allowed`);
+      callback(new Error('Not allowed by CORS: ' + origin));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+};
 
 // ✅ Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST"],
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
+app.options('*', cors(corsOptions)); // handle pre-flight across all routes
+
 
 // ✅ API Routes
 app.use('/api/contact', require('./routes/contactRoutes'));
