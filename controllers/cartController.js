@@ -1,36 +1,46 @@
-
-const User = require('../models/Product');
+const Cart = require('../models/Cart');
 
 exports.getCart = async (req, res) => {
-  const user = await User.findById(req.user._id).populate('cart.product');
-  res.json(user.cart);
+  try {
+    const cart = await Cart.findOne().populate('items.product');
+    if (!cart) return res.json({ items: [] });
+    res.json(cart.items);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.addToCart = async (req, res) => {
   const { productId, quantity } = req.body;
-  const user = await User.findById(req.user._id);
+  let cart = await Cart.findOne();
 
-  const itemIndex = user.cart.findIndex(item => item.product.toString() === productId);
-  if (itemIndex > -1) {
-    user.cart[itemIndex].quantity += quantity;
+  if (!cart) cart = new Cart({ items: [] });
+
+  const index = cart.items.findIndex(item => item.product.toString() === productId);
+  if (index > -1) {
+    cart.items[index].quantity += quantity;
   } else {
-    user.cart.push({ product: productId, quantity });
+    cart.items.push({ product: productId, quantity });
   }
 
-  await user.save();
-  res.json(user.cart);
+  await cart.save();
+  res.json(cart.items);
 };
 
 exports.removeFromCart = async (req, res) => {
-  const user = await User.findById(req.user._id);
-  user.cart = user.cart.filter(item => item.product.toString() !== req.params.productId);
-  await user.save();
-  res.json(user.cart);
+  const cart = await Cart.findOne();
+  if (!cart) return res.status(404).json({ message: 'Cart not found' });
+
+  cart.items = cart.items.filter(item => item.product.toString() !== req.params.productId);
+  await cart.save();
+  res.json(cart.items);
 };
 
 exports.clearCart = async (req, res) => {
-  const user = await User.findById(req.user._id);
-  user.cart = [];
-  await user.save();
+  const cart = await Cart.findOne();
+  if (!cart) return res.status(404).json({ message: 'Cart not found' });
+
+  cart.items = [];
+  await cart.save();
   res.json({ message: 'Cart cleared' });
 };

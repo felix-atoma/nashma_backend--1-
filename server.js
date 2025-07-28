@@ -38,7 +38,7 @@ app.options('*', cors(corsOptions)); // handle pre-flight across all routes
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
 app.use('/api/products', productRoutes);
-app.use('/cart', cartRoutes);
+app.use('/api/cart', cartRoutes);
 
 // ✅ Serve static files from public folder (for health check or test page)
 app.use(express.static(path.join(__dirname, 'public')));
