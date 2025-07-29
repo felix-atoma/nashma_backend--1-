@@ -1,16 +1,16 @@
-// routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 
-// Apply admin protection to all routes in this file
+// Protect all admin routes
 router.use(authController.protect);
 router.use(authController.restrictTo('admin'));
 
 // Admin User Management
 router.route('/users')
-  .get(userController.getAllUsers);
+  .get(userController.getAllUsers)
+  .post(userController.createUser);
 
 router.route('/users/:id')
   .get(userController.getUser)
@@ -18,19 +18,15 @@ router.route('/users/:id')
   .delete(userController.deleteUser);
 
 // Admin Management
-router.post('/admins', authController.createAdmin);
-router.patch('/admins/:userId/set-role', authController.setAdminRole);
+router.route('/admins')
+  .get(userController.getAllAdmins)
+  .post(authController.createAdmin);
 
-// Admin Dashboard Stats (example - implement as needed)
-router.get('/stats', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    data: {
-      users: 150,
-      admins: 5,
-      activeSessions: 87
-    }
-  });
-});
+router.route('/admins/:userId/set-role')
+  .patch(authController.setAdminRole)
+  .delete(authController.removeAdminRole);
+
+// Admin Dashboard Stats
+router.get('/stats', userController.getAdminStats);
 
 module.exports = router;

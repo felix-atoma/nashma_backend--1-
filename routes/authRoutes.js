@@ -3,24 +3,25 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 
-// ==================== PUBLIC ROUTES ====================
+// Authentication routes
 router.post('/signup', authController.signup);
 router.post('/login', authController.login);
-router.post('/forgot-password', authController.forgotPassword);
-router.patch('/reset-password/:token', authController.resetPassword);
+router.post('/forgotPassword', authController.forgotPassword);
+router.patch('/resetPassword/:token', authController.resetPassword);
 
-// ==================== PROTECTED ROUTES (Require Login) ====================
-router.use(authController.protect); // Applies to all routes below
+// Protect all routes after this middleware
+router.use(authController.protect);
 
-router.patch('/update-my-password', authController.updatePassword);
+// Current user routes
+router.patch('/updateMyPassword', authController.updatePassword);
 router.get('/me', userController.getMe, userController.getUser);
-router.patch('/update-me', userController.updateMe);
-router.delete('/delete-me', userController.deleteMe);
+router.patch('/updateMe', userController.updateMe);
+router.delete('/deleteMe', userController.deleteMe);
 
-// ==================== ADMIN-ONLY ROUTES ====================
-router.use(authController.restrictTo('admin')); // Applies to all routes below
+// Admin-only routes
+router.use(authController.restrictTo('admin'));
 
-// User Management
+// User management routes
 router.route('/')
   .get(userController.getAllUsers);
 
@@ -28,9 +29,5 @@ router.route('/:id')
   .get(userController.getUser)
   .patch(userController.updateUser)
   .delete(userController.deleteUser);
-
-// Admin Management
-router.post('/create-admin', authController.createAdmin);
-router.patch('/set-admin/:userId', authController.setAdminRole);
 
 module.exports = router;
