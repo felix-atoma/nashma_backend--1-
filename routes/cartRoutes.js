@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const cartController = require('../controllers/cartController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-// Unprotected routes (no login needed)
+// Protect all cart routes
+router.use(authMiddleware.protect);
+
 router.get('/', cartController.getCart);
 router.post('/', cartController.addToCart);
 router.delete('/:productId', cartController.removeFromCart);
