@@ -28,4 +28,9 @@ router.delete('/:productId', cartController.removeFromCart);
 // DELETE /api/cart - Clear entire cart
 router.delete('/', cartController.clearCart);
 
+//  test rout
+router.get('/test', (req, res) => {
+  res.json({ msg: 'Cart route works' });
+});
+
 module.exports = router;

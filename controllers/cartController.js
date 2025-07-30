@@ -39,11 +39,22 @@ exports.addToCart = catchAsync(async (req, res, next) => {
   }
 
   // Verify product exists and is available
-  const product = await Product.findOne({
-    _id: productId,
-    status: 'active',
-    stock: { $gte: qty }
+  console.log('👉 productId:', productId);
+console.log('👉 qty:', qty);
+
+const product = await Product.findOne({
+  _id: productId,
+  status: 'active',
+  stock: { $gte: qty }
+});
+
+if (!product) {
+  return res.status(404).json({
+    status: 'fail',
+    message: 'Product not found or out of stock'
   });
+}
+
 
   if (!product) {
     return next(new AppError('Product not available or insufficient stock', 404));
