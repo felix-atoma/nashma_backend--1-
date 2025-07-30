@@ -1,38 +1,73 @@
-const ContactMessage = require('../models/ContactMessage');
-const sendEmail = require('../utils/sendEmail');
+// controllers/contactController.js
+const Contact = require('../models/Contact');
+const AppError = require('../utils/appError');
+const catchAsync = require('../utils/catchAsync');
 
-exports.submitContact = async (req, res) => {
-  try {
-    const { name, email, phone, subject, message } = req.body;
+// Public contact submission
+exports.submitContact = catchAsync(async (req, res, next) => {
+  const { name, email, phone, subject, message } = req.body;
 
-    // Save to DB
-    const contact = await ContactMessage.create({
-      name,
-      email,
-      phone,
-      subject,
-      message,
-    });
+  const newContact = await Contact.create({
+    name,
+    email,
+    phone,
+    subject,
+    message
+  });
 
-    // Send email to the site owner
-    await sendEmail({
-      to: process.env.CLIENT_EMAIL, // ← Message goes to the site owner
-      subject: `New Contact Message: ${subject}`,
-      text: `
-You received a new message from your website:
+  res.status(201).json({
+    status: 'success',
+    data: {
+      contact: newContact
+    }
+  });
+});
 
-Name: ${name}
-Email: ${email}
-Phone: ${phone}
+// Admin-only methods
+exports.getAllContacts = catchAsync(async (req, res, next) => {
+  const contacts = await Contact.find().sort('-createdAt');
+  
+  res.status(200).json({
+    status: 'success',
+    results: contacts.length,
+    data: {
+      contacts
+    }
+  });
+});
 
-Message:
-${message}
-      `,
-    });
-
-    res.status(200).json({ message: 'Message sent successfully!' });
-  } catch (err) {
-    console.error('Contact submission error:', err);
-    res.status(500).json({ message: 'Server error' });
+exports.getContact = catchAsync(async (req, res, next) => {
+  const contact = await Contact.findById(req.params.id);
+  
+  if (!contact) {
+    return next(new AppError('No contact found with that ID', 404));
   }
+  
+  res.status(200).json({
+    status: 'success',
+    data: {
+      contact
+    }
+  });
+});
+
+exports.deleteContact = catchAsync(async (req, res, next) => {
+  const contact = await Contact.findByIdAndDelete(req.params.id);
+  
+  if (!contact) {
+    return next(new AppError('No contact found with that ID', 404));
+  }
+  
+  res.status(204).json({
+    status: 'success',
+    data: null
+  });
+});
+
+// Make sure all methods are exported
+module.exports = {
+  submitContact: exports.submitContact,
+  getAllContacts: exports.getAllContacts,
+  getContact: exports.getContact,
+  deleteContact: exports.deleteContact
 };

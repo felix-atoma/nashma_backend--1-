@@ -1,0 +1,14 @@
+extends layout
+
+block content
+  p Dear #{firstName},
+  p Thank you for contacting Nashma Agribusiness!
+  p We've received your message regarding "#{subject}" and our team will get back to you shortly.
+  p Here's a summary of your submission:
+  ul
+    li Name: #{firstName}
+    li Email: #{email}
+    li Subject: #{subject}
+  p If you have any urgent inquiries, please don't hesitate to contact us directly.
+  p Best regards,
+  p The Nashma Team

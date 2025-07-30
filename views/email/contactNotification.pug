@@ -1,0 +1,19 @@
+extends layout
+
+block content
+  h2 New Contact Form Submission
+  h3 #{contact.subject}
+  p 
+    strong From: 
+    | #{contact.name} (#{contact.email})
+  if contact.phone
+    p 
+      strong Phone: 
+      | #{contact.phone}
+  p 
+    strong Message: 
+    | #{contact.message}
+  p 
+    strong Received: 
+    | #{new Date(contact.createdAt).toLocaleString()}
+  a(href=`${url}`) View in admin dashboard

@@ -1,0 +1,19 @@
+doctype html
+html
+  head
+    meta(charset='UTF-8')
+    title= subject
+    style.
+      body { font-family: Arial, sans-serif; line-height: 1.6; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+      .header { background-color: #f8f9fa; padding: 20px; text-align: center; }
+      .content { padding: 20px; }
+      .footer { margin-top: 20px; padding: 20px; text-align: center; color: #6c757d; }
+  body
+    .container
+      .header
+        h1 Nashma Agribusiness
+      .content
+        block content
+      .footer
+        p © #{new Date().getFullYear()} Nashma Agribusiness. All rights reserved.

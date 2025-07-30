@@ -136,10 +136,16 @@ app.get('/', (req, res) => {
 // ============================================
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
-app.use('/api/cart', require('./routes/cartRoutes'));
+const authMiddleware = require('./middleware/authMiddleware');
+app.use('/api/cart', authMiddleware.protect, require('./routes/cartRoutes'));
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
+app.use(
+  '/api/admin',
+  authMiddleware.protect,
+  authMiddleware.restrictTo('admin'),
+  require('./routes/adminRoutes')
+);
 
 // ============================================
 // 🗄️ STATIC FILES
