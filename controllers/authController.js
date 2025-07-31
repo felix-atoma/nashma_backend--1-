@@ -42,19 +42,12 @@ const createSendToken = (user, statusCode, req, res) => {
 ////////////////////////////////////////////////////////////////////////////////
 
 exports.signup = catchAsync(async (req, res, next) => {
-  console.log('🚀 Signup started');
-  console.log('📝 Request body:', req.body);
-  
   const { name, email, password, passwordConfirm } = req.body;
 
   if (!name || !email || !password || !passwordConfirm) {
-    console.log('❌ Missing required fields');
     return next(new AppError('Please provide all required fields!', 400));
   }
 
-  console.log('⏳ About to create user...');
-  console.log('🔍 User data to create:', { name, email, role: req.body.role || 'user' });
-  
   try {
     const newUser = await User.create({
       name,
@@ -63,11 +56,9 @@ exports.signup = catchAsync(async (req, res, next) => {
       passwordConfirm,
       role: req.body.role || 'user',
     });
-    console.log('✅ User created successfully:', newUser._id);
 
     // Fixed: Use createSendToken to send JWT token like other endpoints
     createSendToken(newUser, 201, req, res);
-    console.log('📤 Response sent');
   } catch (error) {
     console.error('💥 Error creating user:', error);
     console.error('💥 Error name:', error.name);
@@ -210,7 +201,6 @@ exports.getMe = catchAsync(async (req, res, next) => {
 ////////////////////////////////////////////////////////////////////////////////
 
 exports.createAdmin = catchAsync(async (req, res, next) => {
-  console.log('🔧 Creating admin user...');
   const { name, email, password, passwordConfirm } = req.body;
   if (!name || !email || !password || !passwordConfirm) {
     return next(

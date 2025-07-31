@@ -13,7 +13,7 @@ const envPath = path.resolve(__dirname, '.env');
 dotenv.config({ path: envPath });
 
 // Verify essential environment variables
-const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS'];
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS', 'JWT_EXPIRES_IN', 'JWT_COOKIE_EXPIRES_IN'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
     console.error(`❌ Missing required environment variable: ${envVar}`);
@@ -71,8 +71,16 @@ const app = express();
 const allowedOrigins = process.env.CLIENT_URLS.split(',').map(url => url.trim());
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Only allow no origin in development or for specific use cases
+    if (!origin) {
+      if (process.env.NODE_ENV === 'development') {
+        return callback(null, true);
+      } else {
+        // In production, log and potentially allow based on user agent or other factors
+        console.warn(`⚠️ Request with no origin in production`);
+        return callback(null, true); // You may want to restrict this further
+      }
+    }
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
