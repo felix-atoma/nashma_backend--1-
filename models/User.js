@@ -3,11 +3,17 @@ const validator = require('validator');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,  // FIXED: Was "Str ing" (typo)
-    required: [true, 'Please tell us your name!'],
+  firstName: {
+    type: String,
+    required: [true, 'Please provide your first name'],
     trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters']
+    maxlength: [50, 'First name cannot exceed 50 characters']
+  },
+  lastName: {
+    type: String,
+    required: [true, 'Please provide your last name'],
+    trim: true,
+    maxlength: [50, 'Last name cannot exceed 50 characters']
   },
   email: {
     type: String,
@@ -46,7 +52,14 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: Date,
   passwordChangedAt: Date
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Virtual property for full name
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`;
 });
 
 // Password hashing middleware
@@ -63,6 +76,12 @@ userSchema.pre('save', function(next) {
   if (!this.isModified('password') || this.isNew) return next();
   
   this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
+// Query middleware to filter out inactive users
+userSchema.pre(/^find/, function(next) {
+  this.find({ active: { $ne: false } });
   next();
 });
 
@@ -85,9 +104,9 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
 
 // Method to create password reset token
 userSchema.methods.createPasswordResetToken = function() {
-  const resetToken = require('crypto').randomBytes(32).toString('hex');
+  const resetToken = crypto.randomBytes(32).toString('hex');
   
-  this.passwordResetToken = require('crypto')
+  this.passwordResetToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');

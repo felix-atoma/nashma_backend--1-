@@ -136,10 +136,15 @@ app.get('/', (req, res) => {
 // ============================================
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
-const authMiddleware = require('./middleware/authMiddleware');
-app.use('/api/cart', authMiddleware.protect, require('./routes/cartRoutes'));
+
+// ✅ FIX: Remove duplicate auth middleware - cartRoutes already has it
+app.use('/api/cart', require('./routes/cartRoutes'));
+
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
+
+// Admin routes still need the middleware here since they have additional restrictions
+const authMiddleware = require('./middleware/authMiddleware');
 app.use(
   '/api/admin',
   authMiddleware.protect,

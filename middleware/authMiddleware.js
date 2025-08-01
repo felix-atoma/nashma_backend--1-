@@ -1,21 +1,24 @@
-// middlewares/authMiddleware.js
-
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const User = require('../models/User');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
-exports.protect = catchAsync(async (req, res, next) => {
-   console.log('🔒 protect middleware – headers:', req.headers.authorization, 'cookie:', req.cookies.jwt);
-  let token;
-
-  // 1) Extract token
+// Token extraction utility function
+const extractToken = (req) => {
   if (req.headers.authorization?.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies?.jwt) {
-    token = req.cookies.jwt;
+    return req.headers.authorization.split(' ')[1];
   }
+  if (req.cookies?.jwt) {
+    return req.cookies.jwt;
+  }
+  return null;
+};
+
+exports.protect = catchAsync(async (req, res, next) => {
+  // 1) Extract token
+  const token = extractToken(req);
+  
   if (!token) {
     return next(
       new AppError('You are not logged in! Please log in to get access.', 401)
@@ -32,31 +35,47 @@ exports.protect = catchAsync(async (req, res, next) => {
       new AppError('The user belonging to this token no longer exists.', 401)
     );
   }
+
+  // 4) Check account status
   if (!currentUser.active) {
     return next(
       new AppError('Your account has been deactivated. Please contact support.', 403)
     );
   }
 
-  // 4) Check password change
+  // 5) Check password change
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
       new AppError('User recently changed password! Please log in again.', 401)
     );
   }
 
-  // 5) Grant access
+  // 6) Grant access
   req.user = currentUser;
   res.locals.user = currentUser;
   next();
 });
 
-exports.restrictTo = (...roles) => (req, res, next) => {
-  if (!req.user) {
-    return next(new AppError('You are not logged in.', 401));
-  }
-  if (!roles.includes(req.user.role)) {
-    return next(new AppError('Unauthorized action.', 403));
-  }
-  next();
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    // This should run after protect middleware
+    if (!req.user) {
+      return next(
+        new AppError('You must be logged in to access this resource', 401)
+      );
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError('You do not have permission to perform this action', 403)
+      );
+    }
+
+    next();
+  };
 };
+
+// Optional: Add token refresh middleware if needed
+exports.refreshToken = catchAsync(async (req, res, next) => {
+  // Implementation if you need token refreshing
+});
