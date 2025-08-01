@@ -39,10 +39,7 @@ exports.addToCart = catchAsync(async (req, res, next) => {
   }
 
   // Verify product exists and is available
-  console.log('👉 productId:', productId);
-console.log('👉 qty:', qty);
-
-const product = await Product.findOne({
+  const product = await Product.findOne({
   _id: productId,
   status: 'active',
   stock: { $gte: qty }

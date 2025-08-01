@@ -7,7 +7,6 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 exports.protect = catchAsync(async (req, res, next) => {
-   console.log('🔒 protect middleware – headers:', req.headers.authorization, 'cookie:', req.cookies.jwt);
   let token;
 
   // 1) Extract token
