@@ -5,214 +5,211 @@ const path = require('path');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const slowDown = require('express-slow-down');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 
 // ============================================
-// 🚨 CRITICAL: ENVIRONMENT VARIABLES SETUP
+// 🚨 ENVIRONMENT CONFIGURATION
 // ============================================
-const envPath = path.resolve(__dirname, '.env');
-dotenv.config({ path: envPath });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// Verify essential environment variables
-const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS', 'JWT_EXPIRES_IN', 'JWT_COOKIE_EXPIRES_IN'];
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS'];
 requiredEnvVars.forEach(envVar => {
-  if (!process.env[envVar]) {
-    console.error(`❌ Missing required environment variable: ${envVar}`);
-    process.exit(1);
-  }
+  if (!process.env[envVar]) throw new Error(`Missing ${envVar} in .env`);
 });
 
 // ============================================
-// 🛢️ DATABASE CONNECTION (WITH ENHANCED ERROR HANDLING)
+// 🛢️ DATABASE CONNECTION (WITH IMPROVED HANDLING)
 // ============================================
 const connectDB = async () => {
+  const options = {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 30000,
+    maxPoolSize: 50,
+    minPoolSize: 5,
+    retryWrites: true,
+    w: 'majority'
+  };
+
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // 10 seconds timeout
-      socketTimeoutMS: 45000, // 45 seconds socket timeout
-    });
-    
+    const conn = await mongoose.connect(process.env.MONGO_URI, options);
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📊 Database Name: ${conn.connection.name}`);
     
-    // Monitor connection events
-    conn.connection.on('connected', () => {
-      console.log('📡 Mongoose default connection open');
+    conn.connection.on('error', err => {
+      console.error('MongoDB connection error:', err);
+      if (err.message.includes('buffering timed out')) {
+        mongoose.disconnect();
+      }
     });
-    
-    conn.connection.on('error', (err) => {
-      console.error(`❌ Mongoose connection error: ${err}`);
-    });
-    
-    conn.connection.on('disconnected', () => {
-      console.log('🔌 Mongoose default connection disconnected');
-    });
-    
   } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    console.error('💡 Troubleshooting Tips:');
-    console.error('1. Check if your MongoDB Atlas IP whitelist includes your current IP');
-    console.error('2. Verify your MongoDB credentials in the .env file');
-    console.error('3. Ensure your internet connection is stable');
+    console.error('❌ MongoDB Connection Error:', error);
     process.exit(1);
   }
 };
 connectDB();
 
 // ============================================
-// 🚀 EXPRESS APPLICATION SETUP
+// 🚀 EXPRESS SERVER CONFIGURATION
 // ============================================
 const app = express();
+const httpServer = createServer(app);
+
+// Add Socket.io support
+const io = new Server(httpServer, {
+  pingTimeout: 60000,
+  cors: {
+    origin: process.env.CLIENT_URLS.split(','),
+    methods: ['GET', 'POST']
+  }
+});
 
 // ============================================
-// 🔒 SECURITY & CORS CONFIGURATION
+// 🔒 SECURITY MIDDLEWARE
 // ============================================
-const allowedOrigins = process.env.CLIENT_URLS.split(',').map(url => url.trim());
+app.use(helmet());
+app.use(cookieParser());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: req => req.ip === '::1' // Skip for localhost
+});
+
+// Request slowing
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 50, // Allow 50 requests per 15 minutes without delay
+  delayMs: () => 500, // Add 500ms delay per request after delayAfter
+  maxDelayMs: 20000, // Maximum delay of 20 seconds
+  validate: {
+    delayMs: false // This will disable the warning
+  }
+});
+
+app.use(limiter);
+app.use(speedLimiter);
+
+// Enhanced CORS
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Only allow no origin in development or for specific use cases
-    if (!origin) {
-      if (process.env.NODE_ENV === 'development') {
-        return callback(null, true);
-      } else {
-        // In production, log and potentially allow based on user agent or other factors
-        console.warn(`⚠️ Request with no origin in production`);
-        return callback(null, true); // You may want to restrict this further
-      }
-    }
-    
-    if (allowedOrigins.includes(origin)) {
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.CLIENT_URLS.split(',');
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.error(`🚨 CORS Violation Attempt from: ${origin}`);
-      callback(new Error(`Not allowed by CORS. Allowed origins: ${allowedOrigins.join(', ')}`));
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200
 };
-
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
 
-// ============================================
-// 🛡️ SECURITY MIDDLEWARE
-// ============================================
-app.use(express.json({ limit: '10kb' })); // Limit JSON payload size
+// Body parsing with size limits
+app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(cookieParser());
-
-// Remove X-Powered-By header
-app.disable('x-powered-by');
 
 // ============================================
-// 📊 REQUEST LOGGING
+// ⏱️ REQUEST TIMEOUT HANDLING
+// ============================================
+app.use((req, res, next) => {
+  res.setTimeout(10000, () => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timeout' });
+    }
+  });
+  next();
+});
+
+// ============================================
+// 📊 LOGGING & MONITORING
 // ============================================
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 } else {
   app.use(morgan('combined', {
-    skip: (req, res) => req.originalUrl === '/healthcheck'
+    skip: (req, res) => req.path === '/healthcheck'
   }));
 }
 
+// Event loop monitoring
+require('blocked-at')((time, stack) => {
+  console.error(`Event loop blocked for ${time}ms`, stack);
+}, { threshold: 100 });
+
 // ============================================
-// 🏠 BASIC ROUTES
+// 🛠️ ROUTES SETUP
 // ============================================
-app.get('/api/healthcheck', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date(),
-    uptime: process.uptime(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+// Health check endpoint
+app.get('/healthcheck', (req, res) => {
+  res.json({
+    status: 'ok',
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    memory: process.memoryUsage(),
+    uptime: process.uptime()
   });
 });
 
-app.get('/', (req, res) => {
-  res.json({ 
-    message: '🚀 Welcome to Nashma Backend API',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    documentation: '/api-docs' // If you implement Swagger later
-  });
+// API Routes
+const routes = [
+  { path: '/api/auth', route: require('./routes/authRoutes') },
+  { path: '/api/products', route: require('./routes/productRoutes') },
+  { path: '/api/cart', route: require('./routes/cartRoutes') },
+  { path: '/api/admin', route: require('./routes/adminRoutes'), middleware: [
+    require('./middleware/authMiddleware').protect,
+    require('./middleware/authMiddleware').restrictTo('admin')
+  ]}
+];
+
+routes.forEach(({ path, route, middleware = [] }) => {
+  app.use(path, ...middleware, route);
 });
 
 // ============================================
-// 📌 API ROUTES
+// 🛑 ERROR HANDLING
 // ============================================
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/products', require('./routes/productRoutes'));
-const authMiddleware = require('./middleware/authMiddleware');
-app.use('/api/cart', authMiddleware.protect, require('./routes/cartRoutes'));
-app.use('/api/contact', require('./routes/contactRoutes'));
-app.use('/api/newsletter', require('./routes/newsletterRoutes'));
-app.use(
-  '/api/admin',
-  authMiddleware.protect,
-  authMiddleware.restrictTo('admin'),
-  require('./routes/adminRoutes')
-);
-
-// ============================================
-// 🗄️ STATIC FILES
-// ============================================
-app.use(
-  express.static(path.join(__dirname, 'public'), {
-    maxAge: '1d',
-    setHeaders: (res, path) => {
-      if (path.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache');
-      }
-    },
-  })
-);
-
-
-// ============================================
-// ❌ ERROR HANDLING
-// ============================================
-// 404 Handler
-app.use((req, res, next) => {
-  res.status(404).json({
-    status: 'error',
-    message: `🔍 Not Found - ${req.method} ${req.originalUrl}`
-  });
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Global Error Handler
-const errorHandler = require('./middleware/errorMiddleware');
-app.use(errorHandler);
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 // ============================================
 // 🚦 SERVER STARTUP
 // ============================================
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`\n✅ Server running in ${process.env.NODE_ENV || 'development'} mode`);
-  console.log(`🌐 Access URLs:`);
-  console.log(`   Local: http://localhost:${PORT}`);
-  console.log(`   Network: http://${require('ip').address()}:${PORT}`);
-  console.log(`📅 Started at: ${new Date().toISOString()}`);
-  console.log(`🔗 Allowed CORS Origins: ${allowedOrigins.join(', ')}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  
+  // Optional: Log memory usage periodically
+  setInterval(() => {
+    const memory = process.memoryUsage();
+    console.log(`Memory usage: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
+  }, 60000);
 });
 
-// ============================================
-// 🛑 GRACEFUL SHUTDOWN HANDLING
-// ============================================
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('💤 Process terminated');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('💤 Process terminated');
-    process.exit(0);
+// Graceful shutdown
+['SIGINT', 'SIGTERM'].forEach(signal => {
+  process.on(signal, () => {
+    console.log(`Received ${signal}, shutting down...`);
+    httpServer.close(() => {
+      mongoose.disconnect();
+      process.exit(0);
+    });
   });
 });
