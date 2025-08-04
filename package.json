@@ -18,6 +18,7 @@
     "express-rate-limit": "^8.0.1",
     "express-slow-down": "^2.1.0",
     "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
     "html-to-text": "^8.2.1",
     "ip": "^2.0.1",
     "jsonwebtoken": "^9.0.2",
