@@ -16,7 +16,8 @@ const { Server } = require('socket.io');
 // ============================================
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS'];
+// ✅ FIXED: Changed MONGO_URI to MONGODB_URI to match your .env file
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'PORT', 'CLIENT_URLS'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) throw new Error(`Missing ${envVar} in .env`);
 });
@@ -37,7 +38,8 @@ const connectDB = async () => {
   };
 
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, options);
+    // ✅ FIXED: Changed to use MONGODB_URI
+    const conn = await mongoose.connect(process.env.MONGODB_URI, options);
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     
     conn.connection.on('error', err => {
@@ -139,10 +141,10 @@ if (process.env.NODE_ENV === 'development') {
   }));
 }
 
-// Event loop monitoring
-require('blocked-at')((time, stack) => {
-  console.error(`Event loop blocked for ${time}ms`, stack);
-}, { threshold: 100 });
+// Event loop monitoring (Optional - comment out if blocked-at is not installed)
+// require('blocked-at')((time, stack) => {
+//   console.error(`Event loop blocked for ${time}ms`, stack);
+// }, { threshold: 100 });
 
 // ============================================
 // 🛠️ ROUTES SETUP
@@ -157,19 +159,33 @@ app.get('/healthcheck', (req, res) => {
   });
 });
 
-// API Routes
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Nashma backend running' });
+});
+
+// API Routes with error handling
 const routes = [
-  { path: '/api/auth', route: require('./routes/authRoutes') },
-  { path: '/api/products', route: require('./routes/productRoutes') },
-  { path: '/api/cart', route: require('./routes/cartRoutes') },
-  { path: '/api/admin', route: require('./routes/adminRoutes'), middleware: [
-    require('./middleware/authMiddleware').protect,
-    require('./middleware/authMiddleware').restrictTo('admin')
-  ]}
+  { path: '/api/auth', route: './routes/authRoutes' },
+  { path: '/api/products', route: './routes/productRoutes' },
+  { path: '/api/cart', route: './routes/cartRoutes' },
+  { path: '/api/contact', route: './routes/contactRoutes' },
+  { 
+    path: '/api/admin', 
+    route: './routes/adminRoutes', 
+    middleware: [
+      require('./middleware/authMiddleware').protect,
+      require('./middleware/authMiddleware').restrictTo('admin')
+    ]
+  }
 ];
 
 routes.forEach(({ path, route, middleware = [] }) => {
-  app.use(path, ...middleware, route);
+  try {
+    const routeHandler = require(route);
+    app.use(path, ...middleware, routeHandler);
+  } catch (error) {
+    console.warn(`⚠️ Failed to load route ${route}:`, error.message);
+  }
 });
 
 // ============================================
@@ -194,19 +210,20 @@ app.use((err, req, res, next) => {
 // ============================================
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   
   // Optional: Log memory usage periodically
   setInterval(() => {
     const memory = process.memoryUsage();
-    console.log(`Memory usage: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
+    console.log(`💾 Memory usage: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
   }, 60000);
 });
 
 // Graceful shutdown
 ['SIGINT', 'SIGTERM'].forEach(signal => {
   process.on(signal, () => {
-    console.log(`Received ${signal}, shutting down...`);
+    console.log(`Received ${signal}, shutting down gracefully...`);
     httpServer.close(() => {
       mongoose.disconnect();
       process.exit(0);

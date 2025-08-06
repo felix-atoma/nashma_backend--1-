@@ -1,36 +1,39 @@
 const express = require('express');
 const cartController = require('../controllers/cartController');
-const authMiddleware = require('../middleware/authMiddleware');
+const authController = require('../controllers/authController');
 
 const router = express.Router();
 
-// Protect all cart routes
-router.use(authMiddleware.protect);
+// Protect all routes (require authentication)
+router.use(authController.protect);
 
 // GET /api/cart - Get user's cart
-router.get('/', cartController.getCart);
-
 // POST /api/cart - Add item to cart
-router.post('/', 
-  express.json(), // Body parser
-  cartController.addToCart
-);
-
-// PATCH /api/cart - Bulk update cart items
-router.patch('/',
-  express.json(),
-  cartController.updateCart
-);
-
-// DELETE /api/cart/:productId - Remove specific item
-router.delete('/:productId', cartController.removeFromCart);
-
 // DELETE /api/cart - Clear entire cart
-router.delete('/', cartController.clearCart);
+router
+  .route('/')
+  .get(cartController.getCart)
+  .post(cartController.addToCart)
+  .delete(cartController.clearCart);
 
-//  test rout
-router.get('/test', (req, res) => {
-  res.json({ msg: 'Cart route works' });
-});
+// DELETE /api/cart/:productId - Remove specific item from cart
+router
+  .route('/:productId')
+  .delete(cartController.removeFromCart);
+
+// PATCH /api/cart/items - Update multiple cart items
+router
+  .route('/items')
+  .patch(cartController.updateCartItems);
+
+// POST /api/cart/apply-coupon - Apply coupon to cart
+router
+  .route('/apply-coupon')
+  .post(cartController.applyCoupon);
+
+// DELETE /api/cart/remove-coupon - Remove coupon from cart
+router
+  .route('/remove-coupon')
+  .delete(cartController.removeCoupon);
 
 module.exports = router;
